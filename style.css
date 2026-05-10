@@ -292,7 +292,7 @@ body {
   width: 30px;
   height: 30px;
   background: #2ecc71;
-  z-index: 5;
+  z-index: 8;
   transition: background 0.15s, box-shadow 0.3s;
 }
 
@@ -440,8 +440,26 @@ body {
   width: 30px;
   height: 30px;
   background: #f1c40f;
-  z-index: 5;
+  clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+  z-index: 8;
   transition: background 0.15s;
+}
+
+.triangle-enemy::before {
+  content: '';
+  position: absolute;
+  top: -22px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 22px;
+  height: 24px;
+  background: #2c3e50;
+  clip-path: polygon(50% 0%, 0% 65%, 8% 65%, 0% 100%, 100% 100%, 92% 65%, 100% 65%);
+  z-index: 9;
+}
+
+.triangle-enemy.hit::before {
+  background: #fff;
 }
 
 .triangle-enemy.hit {
@@ -456,12 +474,12 @@ body {
 /* Enemy bullets */
 .enemy-bullet {
   position: absolute;
-  width: 8px;
-  height: 8px;
-  background: #f39c12;
-  border-radius: 50%;
+  width: 10px;
+  height: 10px;
+  background: #e74c3c;
+  clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
   z-index: 7;
-  box-shadow: 0 0 6px rgba(243,156,18,0.8);
+  box-shadow: 0 0 6px rgba(231,76,60,0.8);
 }
 
 /* Fire zone */
@@ -499,11 +517,14 @@ body {
 }
 
 /* Lobby */
-#lobby {
-  margin-top: 10px;
+#mp-lobby {
+  margin-top: 12px;
 }
 
-#lobby button {
+#mp-lobby button {
+  display: block;
+  width: 100%;
+  margin: 6px 0;
   padding: 8px 20px;
   font-size: 14px;
   font-family: monospace;
@@ -514,40 +535,49 @@ body {
   cursor: pointer;
 }
 
-#lobby button:hover:not(:disabled) {
+#mp-lobby button:hover {
   background: #a569bd;
 }
 
-#lobby button:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
+#mp-create-btn { background: #2ecc71; }
+#mp-create-btn:hover { background: #27ae60; }
+#mp-join-btn { background: #3498db; }
+#mp-join-btn:hover { background: #2980b9; }
+#mp-start-btn { background: #e67e22; }
+#mp-start-btn:hover { background: #d35400; }
+#mp-cancel-btn { background: #e74c3c; }
+#mp-cancel-btn:hover { background: #c0392b; }
+#mp-back-btn, #mp-back-join-btn { background: #7f8c8d; }
+#mp-back-btn:hover, #mp-back-join-btn:hover { background: #95a5a6; }
+#mp-leave-btn { background: #e74c3c; }
+#mp-leave-btn:hover { background: #c0392b; }
+#mp-connect-btn { background: #2ecc71; }
+#mp-connect-btn:hover { background: #27ae60; }
 
-#create-room-btn {
-  background: #2ecc71;
-}
-
-#create-room-btn:hover:not(:disabled) {
-  background: #27ae60;
-}
-
-#join-room-btn {
-  background: #3498db;
-}
-
-#join-room-btn:hover:not(:disabled) {
-  background: #2980b9;
-}
-
-#room-code-input {
+#mp-room-input {
+  width: calc(100% - 20px);
+  padding: 8px 10px;
+  margin: 4px 0;
+  font-size: 18px;
+  font-family: monospace;
+  text-align: center;
+  letter-spacing: 4px;
   background: rgba(255,255,255,0.1);
   color: #fff;
   border: 1px solid rgba(255,255,255,0.2);
   border-radius: 4px;
+  outline: none;
 }
 
-#room-code-input::placeholder {
+#mp-room-input:focus {
+  border-color: #3498db;
+  box-shadow: 0 0 6px rgba(52,152,219,0.4);
+}
+
+#mp-room-input::placeholder {
   color: rgba(255,255,255,0.3);
+  letter-spacing: 2px;
+  font-size: 14px;
 }
 
 #room-code-big {
@@ -555,6 +585,23 @@ body {
   font-weight: bold;
   letter-spacing: 8px;
   color: #fff;
+  margin: 10px 0;
+}
+
+#mp-btn {
+  margin-top: 10px;
+  padding: 8px 24px;
+  font-size: 14px;
+  font-family: monospace;
+  background: #8e44ad;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+#mp-btn:hover {
+  background: #a569bd;
 }
 
 /* Other players */
@@ -575,31 +622,31 @@ body {
   display: block;
   width: 12px;
   height: 12px;
-  background: rgba(255,255,255,0.5);
+  background: var(--circle-color, rgba(255,255,255,0.5));
   border-radius: 50%;
 }
 
 .other-player[data-sword]::after {
   content: '';
   position: absolute;
-  bottom: -3px;
-  right: -3px;
-  width: 6px;
-  height: 14px;
-  background: currentColor;
-  clip-path: polygon(50% 0%, 100% 20%, 100% 55%, 80% 60%, 80% 100%, 20% 100%, 20% 60%, 0% 55%, 0% 20%);
-  border-radius: 0;
+  bottom: -2px;
+  right: -5px;
+  width: 10px;
+  height: 28px;
+  z-index: 11;
+  background: linear-gradient(to bottom, currentColor 64%, #6b3a1f 64%, #6b3a1f 100%);
+  clip-path: polygon(50% 0%, 90% 15%, 90% 64%, 100% 64%, 100% 75%, 85% 75%, 85% 100%, 15% 100%, 15% 75%, 0% 75%, 0% 64%, 10% 64%, 10% 15%);
 }
 
 /* Sword indicator on main player */
 #square[data-sword]::after {
   content: '';
   position: absolute;
-  bottom: -3px;
-  right: -3px;
-  width: 6px;
-  height: 14px;
-  background: currentColor;
-  clip-path: polygon(50% 0%, 100% 20%, 100% 55%, 80% 60%, 80% 100%, 20% 100%, 20% 60%, 0% 55%, 0% 20%);
-  border-radius: 0;
+  bottom: -2px;
+  right: -5px;
+  width: 10px;
+  height: 28px;
+  z-index: 11;
+  background: linear-gradient(to bottom, currentColor 64%, #6b3a1f 64%, #6b3a1f 100%);
+  clip-path: polygon(50% 0%, 90% 15%, 90% 64%, 100% 64%, 100% 75%, 85% 75%, 85% 100%, 15% 100%, 15% 75%, 0% 75%, 0% 64%, 10% 64%, 10% 15%);
 }

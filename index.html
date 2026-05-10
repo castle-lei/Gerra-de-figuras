@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>geometric battle</title>
+<title>Geometric battle</title>
 <link rel="stylesheet" href="style.css">
 <link rel="shortcut icon" href="favicon.png" type="image/x-icon">
 </head>
@@ -12,11 +12,11 @@
 <canvas id="particle-canvas"></canvas>
 
 <div id="trail-container"></div>
-<div id="others-container"></div>
 <div id="green-container"></div>
 <div id="sword-container"></div>
 <div id="heart-container"></div>
 <div id="triangle-container"></div>
+<div id="others-container"></div>
 <div id="square"></div>
 <div id="info">&larr; &uarr; &darr; &rarr; mover el cuadrado</div>
 
@@ -43,44 +43,42 @@
     <p>Consigue la espada para matar verdes</p>
     <button id="start-btn">Comenzar</button>
     <button id="customize-btn">Personalizar</button>
+    <button id="mp-btn">Multijugador</button>
     <div id="customize-panel">
       <h3>Personalizar</h3>
       <label>Cuadrado: <input type="color" id="color-square" value="#f1c40f"></label>
       <label>Círculo: <input type="color" id="color-circle" value="#e94560"></label>
       <button id="customize-close">OK</button>
     </div>
-    <hr style="border-color:rgba(255,255,255,0.1);margin:20px 0">
-    <h2 style="font-size:20px;margin:0 0 10px">🎮 Multijugador Online</h2>
-    <div id="lobby">
-      <p style="font-size:13px;opacity:0.6;margin:0 0 10px">Juega con amigos desde otra computadora</p>
 
-      <div id="lobby-crear">
-        <button id="create-room-btn">🆕 Crear Partida</button>
+    <div id="mp-lobby">
+      <div id="mp-mode-select" class="mp-panel">
+        <button id="mp-create-btn">Crear Sala</button>
+        <button id="mp-join-btn">Unirse a Sala</button>
+        <button id="mp-back-btn">Volver</button>
       </div>
-
-      <div style="margin:12px 0;color:rgba(255,255,255,0.3);font-size:12px">— o —</div>
-
-      <div id="lobby-unirse">
-        <label style="font-size:13px">Código de sala:</label>
-        <div style="display:flex;gap:6px;justify-content:center;margin-top:4px">
-          <input type="text" id="room-code-input" placeholder="1234" maxlength="4" style="width:80px;padding:8px;text-align:center;font-size:20px;font-family:monospace;background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:6px;letter-spacing:4px">
-          <button id="join-room-btn">🔗 Unirse</button>
-        </div>
+      <div id="room-created" class="mp-panel" style="display:none">
+        <p>Código de sala:</p>
+        <div id="room-code-big">----</div>
+        <button id="mp-start-btn">Iniciar Juego</button>
+        <button id="mp-cancel-btn">Cancelar</button>
       </div>
-
-      <div id="room-code-display" style="display:none;margin-top:12px;padding:15px;background:rgba(46,204,113,0.15);border-radius:8px;border:1px solid rgba(46,204,113,0.3)">
-        <p style="font-size:13px;margin:0 0 6px;color:#2ecc71">✅ Sala creada</p>
-        <p style="font-size:13px;margin:0 0 4px;opacity:0.7">Comparte este código con tus amigos:</p>
-        <div id="room-code-big" style="font-size:42px;font-weight:bold;letter-spacing:8px;color:#fff;margin:8px 0"></div>
-        <p style="font-size:12px;margin:0;opacity:0.5">Cada uno debe abrir <strong>http://localhost:3000</strong> e ingresar el código</p>
+      <div id="join-room" class="mp-panel" style="display:none">
+        <input id="mp-room-input" type="text" maxlength="10" placeholder="Código de sala">
+        <button id="mp-connect-btn">Conectar</button>
+        <button id="mp-back-join-btn">Volver</button>
       </div>
-
-      <div id="lobby-status" style="font-size:13px;opacity:0.7;margin-top:10px;min-height:20px"></div>
+      <div id="waiting-for-start" class="mp-panel" style="display:none">
+        <p>Esperando a que el anfitrión inicie...</p>
+        <button id="mp-leave-btn">Salir</button>
+      </div>
     </div>
+
   </div>
 </div>
 
-<script src="/socket.io/socket.io.js"></script>
 <script src="comand.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
+<script src="multiplayer.js"></script>
 </body>
 </html>

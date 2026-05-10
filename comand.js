@@ -28,6 +28,7 @@ let greenHitCooldown = false;
 let playerSlowed = false;
 let playerPoison = { active: false, ticks: 0, lastTick: 0 };
 let STEP = 30;
+let mpMode = false;
 const GREEN_MAX_HP = 3;
 
 const SWORD_TYPES = [
@@ -53,47 +54,52 @@ function startParticles() {
   particleCanvas.width = window.innerWidth;
   particleCanvas.height = window.innerHeight;
   particles = [];
-  const shapes = ['line', 'square', 'triangle'];
-  for (let i = 0; i < 400; i++) {
-    const shape = shapes[i < 160 ? 0 : i < 280 ? 1 : 2];
+  for (let i = 0; i < 450; i++) {
+    const shape = i < 250 ? 0 : i < 350 ? 1 : 2;
     particles.push({
-      x: Math.random() * particleCanvas.width,
-      y: Math.random() * particleCanvas.height,
-      shape,
-      len: 10 + Math.random() * 15,
-      size: 3 + Math.random() * 4,
-      speedY: 3 + Math.random() * 5,
+      x: Math.random() * (particleCanvas.width + 100) - 50,
+      y: Math.random() * particleCanvas.height - particleCanvas.height,
+      len: 6 + Math.random() * 14,
+      size: 2 + Math.random() * 6,
+      speedY: 5 + Math.random() * 8,
       speedX: -0.5 + Math.random() * 0.3,
       opacity: 0.2 + Math.random() * 0.5,
+      wind: -0.3 + Math.random() * 0.15,
       rot: Math.random() * Math.PI * 2,
       rotSpeed: (Math.random() - 0.5) * 0.02,
+      shape,
     });
   }
   function draw() {
     ctx.clearRect(0, 0, particleCanvas.width, particleCanvas.height);
-    ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-    ctx.lineWidth = 1;
-    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.lineWidth = 1.2;
     for (const p of particles) {
       p.y += p.speedY;
-      p.x += p.speedX;
+      p.x += p.wind;
       p.rot += p.rotSpeed;
-      if (p.y > particleCanvas.height + p.len) { p.y = -p.len; p.x = Math.random() * particleCanvas.width; }
-      if (p.x < -15) p.x = particleCanvas.width + 15;
-      if (p.x > particleCanvas.width + 15) p.x = -15;
+      if (p.y > particleCanvas.height + 20) {
+        p.y = -p.len - 20;
+        p.x = Math.random() * (particleCanvas.width + 100) - 50;
+      }
+      if (p.x < -60) p.x = particleCanvas.width + 60;
+      if (p.x > particleCanvas.width + 60) p.x = -60;
       ctx.globalAlpha = p.opacity;
-      if (p.shape === 'line') {
+
+      if (p.shape === 0) {
+        ctx.strokeStyle = 'rgba(180,200,255,0.6)';
         ctx.beginPath();
         ctx.moveTo(p.x, p.y);
-        ctx.lineTo(p.x + p.speedX * 2, p.y - p.len);
+        ctx.lineTo(p.x + p.wind * 4, p.y - p.len);
         ctx.stroke();
-      } else if (p.shape === 'square') {
+      } else if (p.shape === 1) {
+        ctx.fillStyle = 'rgba(180,200,255,0.5)';
         ctx.save();
         ctx.translate(p.x, p.y);
         ctx.rotate(p.rot);
         ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
         ctx.restore();
-      } else if (p.shape === 'triangle') {
+      } else {
+        ctx.fillStyle = 'rgba(180,200,255,0.5)';
         const s = p.size;
         ctx.save();
         ctx.translate(p.x, p.y);
@@ -104,17 +110,6 @@ function startParticles() {
         ctx.lineTo(s, s);
         ctx.closePath();
         ctx.fill();
-        ctx.restore();
-      } else if (p.shape === 'text') {
-        ctx.save();
-        ctx.font = 'bold ' + (p.fontSize || 28) + 'px monospace';
-        ctx.fillStyle = p.color || 'rgba(255,255,255,0.9)';
-        ctx.shadowColor = p.color || '#fff';
-        ctx.shadowBlur = 15;
-        ctx.globalAlpha = p.opacity;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(p.digit, p.x, p.y);
         ctx.restore();
       }
     }
@@ -192,8 +187,7 @@ function startWave() {
 
 function checkWaveCleared() {
   if (document.querySelectorAll('.green-square').length === 0) {
-    if (roomCode) { socket.emit('waveCleared'); }
-    else { setTimeout(startWave, 2000); }
+    setTimeout(startWave, 2000);
   }
 }
 
@@ -477,8 +471,8 @@ function triangleShoot() {
     b.className = 'enemy-bullet';
     b.dataset.vx = dx / dist * speed;
     b.dataset.vy = dy / dist * speed;
-    b.style.left = (tx - 4) + 'px';
-    b.style.top = (ty - 4) + 'px';
+    b.style.left = (tx - 5) + 'px';
+    b.style.top = (ty - 5) + 'px';
     container.appendChild(b);
   }
 }
@@ -493,7 +487,7 @@ function moveBullets() {
     }
     b.style.left = bx + 'px';
     b.style.top = by + 'px';
-    if (Math.abs(x + 15 - (bx + 4)) < 15 && Math.abs(y + 15 - (by + 4)) < 15) {
+    if (Math.abs(x + 15 - (bx + 5)) < 15 && Math.abs(y + 15 - (by + 5)) < 15) {
       damagePlayer(5);
       b.remove();
     }
@@ -696,17 +690,56 @@ function applyColors() {
   square.style.background = colorSquare.value;
   square.style.setProperty('--circle-color', colorCircle.value);
 }
-colorSquare.addEventListener('input', () => {
-  applyColors();
-  if (roomCode) socket.emit('updateColor', colorSquare.value);
-});
-colorCircle.addEventListener('input', () => {
-  applyColors();
-  if (roomCode) socket.emit('updateCircleColor', colorCircle.value);
+colorSquare.addEventListener('input', applyColors);
+colorCircle.addEventListener('input', applyColors);
+
+const mpBtn = document.getElementById('mp-btn');
+const mpCreateBtn = document.getElementById('mp-create-btn');
+const mpJoinBtn = document.getElementById('mp-join-btn');
+const mpBackBtn = document.getElementById('mp-back-btn');
+const mpStartBtn = document.getElementById('mp-start-btn');
+const mpCancelBtn = document.getElementById('mp-cancel-btn');
+const mpConnectBtn = document.getElementById('mp-connect-btn');
+const mpBackJoinBtn = document.getElementById('mp-back-join-btn');
+const mpLeaveBtn = document.getElementById('mp-leave-btn');
+const mpRoomInput = document.getElementById('mp-room-input');
+
+mpBtn.addEventListener('click', () => {
+  mpMode = true;
+  document.getElementById('mp-lobby').style.display = 'block';
+  document.getElementById('start-btn').style.display = 'none';
+  customizeBtn.style.display = 'none';
+  document.getElementById('customize-panel').classList.remove('show');
+  showPanel('mp-mode-select');
 });
 
+mpBackBtn.addEventListener('click', () => {
+  if (MP.peer) MP.peer.destroy();
+  MP.connections = [];
+  MP.conn = null;
+  MP.peer = null;
+  MP.isHost = false;
+  mpMode = false;
+  document.getElementById('mp-lobby').style.display = 'none';
+  document.getElementById('start-btn').style.display = '';
+  customizeBtn.style.display = '';
+});
+
+mpCreateBtn.addEventListener('click', () => mpCreateRoom());
+mpJoinBtn.addEventListener('click', () => showPanel('join-room'));
+mpBackJoinBtn.addEventListener('click', () => showPanel('mp-mode-select'));
+mpConnectBtn.addEventListener('click', () => {
+  const code = mpRoomInput.value.trim();
+  if (code) mpJoinRoom(code);
+});
+mpRoomInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') mpConnectBtn.click();
+});
+mpStartBtn.addEventListener('click', () => mpHostStartGame());
+mpCancelBtn.addEventListener('click', () => { mpLeaveGame(); });
+mpLeaveBtn.addEventListener('click', () => { mpLeaveGame(); });
+
 startBtn.addEventListener('click', () => {
-  if (roomCode) { socket.emit('startGame'); return; }
   startScreen.style.display = 'none';
   started = true;
   startWave();
@@ -720,25 +753,6 @@ startBtn.addEventListener('click', () => {
 document.addEventListener('keydown', (e) => {
   if (!started) return;
   const key = e.key;
-
-  // === MULTIPLAYER KEY HANDLING ===
-  if (roomCode) {
-    if (key === 'q' || key === 'Q') {
-      socket.emit('iceFreeze');
-      return;
-    }
-    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || key === 'Shift') {
-      e.preventDefault();
-      socket.emit('placeFire');
-      return;
-    }
-    const dirMap = { ArrowUp: 'up', w: 'up', W: 'up', ArrowDown: 'down', s: 'down', S: 'down', ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right' };
-    const dir = dirMap[key];
-    if (!dir) return;
-    e.preventDefault();
-    socket.emit('playerMove', dir);
-    return;
-  }
 
   // === SINGLE PLAYER KEY HANDLING ===
   if (key === 'q' || key === 'Q') {
@@ -772,243 +786,4 @@ document.addEventListener('keydown', (e) => {
 
 startParticles();
 
-// ============ MULTIPLAYER ============
-const socket = io();
-const othersContainer = document.getElementById('others-container');
-const createRoomBtn = document.getElementById('create-room-btn');
-const joinRoomBtn = document.getElementById('join-room-btn');
-const roomCodeInput = document.getElementById('room-code-input');
-const lobbyStatus = document.getElementById('lobby-status');
-const roomCodeDisplay = document.getElementById('room-code-display');
-const roomCodeBig = document.getElementById('room-code-big');
-let roomCode = null;
-let otherPlayers = {};
-let lastState = null;
 
-createRoomBtn.addEventListener('click', () => {
-  createRoomBtn.disabled = true;
-  createRoomBtn.textContent = 'Creando...';
-  socket.emit('createRoom');
-});
-
-joinRoomBtn.addEventListener('click', () => {
-  const code = roomCodeInput.value.trim();
-  if (code.length === 4) {
-    joinRoomBtn.disabled = true;
-    joinRoomBtn.textContent = 'Conectando...';
-    socket.emit('joinRoom', code);
-  } else {
-    lobbyStatus.textContent = '⚠️ Ingresa un código de 4 números';
-  }
-});
-
-socket.on('roomCreated', (code) => {
-  roomCode = code;
-  roomCodeInput.value = code;
-  roomCodeBig.textContent = code;
-  roomCodeDisplay.style.display = 'block';
-  lobbyStatus.textContent = '🟢 Esperando jugadores...';
-  createRoomBtn.textContent = '✅ Sala creada';
-  spawnCodeParticles(code);
-});
-
-socket.on('roomJoined', (code) => {
-  roomCode = code;
-  lobbyStatus.textContent = '✅ Conectado a la sala';
-  roomCodeInput.value = code;
-  joinRoomBtn.textContent = '✅ Conectado';
-  spawnCodeParticles(code);
-});
-
-socket.on('joinError', (msg) => {
-  lobbyStatus.textContent = '❌ ' + msg;
-  joinRoomBtn.disabled = false;
-  joinRoomBtn.textContent = '🔗 Unirse';
-});
-
-socket.on('playerJoined', () => {
-  lobbyStatus.textContent = '👤 Un jugador se conectó';
-});
-socket.on('playerLeft', () => {
-  lobbyStatus.textContent = '👤 Un jugador se desconectó';
-});
-
-function spawnCodeParticles(code) {
-  const digits = code.split('');
-  const colors = ['#2ecc71', '#3498db', '#e74c3c', '#f1c40f'];
-  const cx = particleCanvas.width / 2 - 120;
-  const cy = particleCanvas.height / 2;
-  for (let i = 0; i < digits.length; i++) {
-    particles.push({
-      x: cx + i * 80,
-      y: cy + (Math.random() - 0.5) * 40,
-      shape: 'text',
-      digit: digits[i],
-      fontSize: 48,
-      speedY: 0.5 + Math.random() * 0.3,
-      speedX: (Math.random() - 0.5) * 0.2,
-      opacity: 0.8,
-      rot: 0,
-      rotSpeed: 0,
-      color: colors[i],
-    });
-  }
-}
-
-// ============ MULTIPLAYER STATE RENDER ============
-const GREEN_CLASS_MAP = {
-  normal: 'armed', gold: 'armed-gold', ice: 'armed-ice',
-  fire: 'armed-fire', life: 'armed-life', poison: 'armed-poison',
-};
-
-let prevPlayerPos = null;
-
-function renderMultiplayerState(state) {
-  lastState = state;
-  const me = state.players[socket.id];
-  if (!me) return;
-
-  // Trail
-  if (prevPlayerPos && (prevPlayerPos.x !== me.x || prevPlayerPos.y !== me.y)) {
-    const trail = document.createElement('div');
-    trail.className = 'trail';
-    trail.style.left = prevPlayerPos.x + 'px';
-    trail.style.top = prevPlayerPos.y + 'px';
-    trail.style.background = square.style.background || getComputedStyle(square).background;
-    container.appendChild(trail);
-    trail.addEventListener('animationend', () => trail.remove());
-  }
-  prevPlayerPos = { x: me.x, y: me.y };
-
-  // Position
-  square.style.left = me.x + 'px';
-  square.style.top = me.y + 'px';
-
-  // HP
-  hp = me.hp;
-  healthFill.style.width = Math.max(0, me.hp / maxHp * 100) + '%';
-  healthText.textContent = Math.max(0, me.hp);
-
-  // Sword
-  if (me.sword !== swordType) {
-    swordType = me.sword;
-    updateSwordUI();
-  }
-
-  // Wave announce
-  if (state.wave > wave) {
-    wave = state.wave;
-    announceWave(wave);
-  }
-
-  // Other players
-  othersContainer.innerHTML = '';
-  for (const [id, p] of Object.entries(state.players)) {
-    if (id === socket.id) continue;
-    const el = document.createElement('div');
-    el.id = 'other-' + id;
-    el.className = 'other-player';
-    el.style.left = p.x + 'px';
-    el.style.top = p.y + 'px';
-    if (p.color) el.style.background = p.color;
-    if (p.sword) {
-      el.dataset.sword = p.sword;
-      const swordColors = { normal:'#95a5a6', gold:'#f1c40f', ice:'#5dade2', fire:'#e74c3c', life:'#1abc9c', poison:'#8e44ad' };
-      el.style.color = swordColors[p.sword] || '#95a5a6';
-    } else {
-      delete el.dataset.sword;
-    }
-    othersContainer.appendChild(el);
-  }
-
-  // Greens
-  greenContainer.innerHTML = '';
-  for (const gr of state.greens) {
-    const el = document.createElement('div');
-    el.className = 'green-square';
-    if (gr.frozen) el.classList.add('frozen');
-    if (gr.sword) el.classList.add(GREEN_CLASS_MAP[gr.sword] || 'armed');
-    el.style.left = gr.x + 'px';
-    el.style.top = gr.y + 'px';
-    el.dataset.sid = gr.id;
-    greenContainer.appendChild(el);
-  }
-
-  // Triangles
-  triangleContainer.innerHTML = '';
-  for (const t of state.triangles) {
-    const el = document.createElement('div');
-    el.className = 'triangle-enemy';
-    if (t.frozen) el.classList.add('frozen');
-    el.style.left = t.x + 'px';
-    el.style.top = t.y + 'px';
-    triangleContainer.appendChild(el);
-  }
-
-  // Bullets
-  container.querySelectorAll('.enemy-bullet').forEach(el => el.remove());
-  for (const b of state.bullets) {
-    const el = document.createElement('div');
-    el.className = 'enemy-bullet';
-    el.style.left = b.x + 'px';
-    el.style.top = b.y + 'px';
-    container.appendChild(el);
-  }
-
-  // Hearts
-  heartContainer.innerHTML = '';
-  for (const h of state.hearts) {
-    const el = document.createElement('div');
-    el.className = 'heart';
-    el.style.left = h.x + 'px';
-    el.style.top = h.y + 'px';
-    heartContainer.appendChild(el);
-  }
-
-  // Ground swords
-  swordContainer.innerHTML = '';
-  for (const s of state.groundSwords) {
-    const el = document.createElement('div');
-    el.className = 'sword-item sword-' + s.type;
-    el.style.left = s.x + 'px';
-    el.style.top = s.y + 'px';
-    swordContainer.appendChild(el);
-  }
-
-  // Fire zones
-  container.querySelectorAll('.fire-zone').forEach(el => el.remove());
-  for (const z of state.fireZones) {
-    for (let dx = -1; dx <= 1; dx++) {
-      for (let dy = -1; dy <= 1; dy++) {
-        const tile = document.createElement('div');
-        tile.className = 'fire-zone';
-        tile.style.left = (z.x + dx * STEP) + 'px';
-        tile.style.top = (z.y + dy * STEP) + 'px';
-        container.appendChild(tile);
-      }
-    }
-  }
-}
-
-socket.on('gameStarted', () => {
-  startScreen.style.display = 'none';
-  started = true;
-  socket.emit('updateColor', colorSquare.value);
-  socket.emit('updateCircleColor', colorCircle.value);
-});
-
-socket.on('gameState', (state) => {
-  if (!started || !roomCode) return;
-  renderMultiplayerState(state);
-  if (state.players[socket.id] && state.players[socket.id].hp <= 0) {
-    started = false;
-    finalWave.textContent = state.wave;
-    gameOverScreen.classList.add('show');
-  }
-});
-
-socket.on('gameOver', (waveNum) => {
-  started = false;
-  finalWave.textContent = waveNum;
-  gameOverScreen.classList.add('show');
-});
