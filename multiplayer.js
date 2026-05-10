@@ -4,7 +4,7 @@ const SWORD_CFG = {
   ice: { dmg: 2, selfDmg: 0 },
   fire: { dmg: 2, selfDmg: 2 },
   life: { dmg: 2, selfDmg: 0 },
-  poison: { dmg: 0.1-, selfDmg: 2 },
+  poison: { dmg: 0.1, selfDmg: 2 },
 };
 
 const SWORD_TYPES_MP = [
