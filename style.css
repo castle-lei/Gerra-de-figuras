@@ -25,6 +25,11 @@ body {
   justify-content: center;
 }
 
+#square.skin-stripes { background-image: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.12) 4px, rgba(0,0,0,0.12) 8px); }
+#square.skin-grid { background-image: linear-gradient(rgba(0,0,0,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.1) 1px, transparent 1px); background-size: 6px 6px; }
+#square.skin-diamond { background-image: repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.1) 5px, rgba(0,0,0,0.1) 6px), repeating-linear-gradient(-45deg, transparent, transparent 5px, rgba(255,255,255,0.12) 5px, rgba(255,255,255,0.12) 6px); }
+#square.skin-dots { background-image: radial-gradient(rgba(0,0,0,0.15) 2px, transparent 2px); background-size: 8px 8px; }
+
 #square::before {
   content: '';
   display: block;
@@ -33,6 +38,11 @@ body {
   background: var(--circle-color, #e94560);
   border-radius: 50%;
 }
+#square.center-square::before { border-radius: 0; }
+#square.center-line::before { width: 30px; height: 9px; border-radius: 0; background: var(--circle-color, #e94560); }
+#square.center-triangle::before { border-radius: 0; clip-path: polygon(50% 0%, 0% 100%, 100% 100%); }
+#square.center-heart::before { border-radius: 0; width: 14px; height: 14px; clip-path: polygon(50% 30%, 65% 10%, 85% 10%, 100% 30%, 100% 55%, 50% 95%, 0% 55%, 0% 30%, 15% 10%, 35% 10%); }
+#square.center-star::before { border-radius: 0; clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); }
 
 .trail {
   position: absolute;
@@ -87,6 +97,59 @@ body {
   color: #fff;
   font-weight: bold;
   font-size: 12px;
+  text-shadow: 0 0 3px #000;
+}
+
+/* Other player HP bar */
+.other-player .hp-bar {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 28px;
+  height: 4px;
+  background: #333;
+  border-radius: 2px;
+  overflow: hidden;
+}
+.other-player .hp-bar-fill {
+  height: 100%;
+  background: #2ecc71;
+  transition: width 0.15s;
+}
+
+/* Boss HP bar */
+#boss-hp-bar {
+  position: fixed;
+  top: 50px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 300px;
+  height: 16px;
+  background: #333;
+  border-radius: 8px;
+  overflow: hidden;
+  z-index: 20;
+  border: 1px solid #f1c40f;
+  display: none;
+}
+#boss-hp-bar.show {
+  display: block;
+}
+#boss-hp-fill {
+  height: 100%;
+  background: #e74c3c;
+  transition: width 0.2s;
+}
+#boss-hp-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 11px;
+  font-weight: bold;
   text-shadow: 0 0 3px #000;
 }
 
@@ -440,7 +503,6 @@ body {
   width: 30px;
   height: 30px;
   background: #f1c40f;
-  clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
   z-index: 8;
   transition: background 0.15s;
 }
@@ -448,13 +510,13 @@ body {
 .triangle-enemy::before {
   content: '';
   position: absolute;
-  top: -22px;
+  top: -28px;
   left: 50%;
   transform: translateX(-50%);
-  width: 22px;
-  height: 24px;
-  background: #2c3e50;
-  clip-path: polygon(50% 0%, 0% 65%, 8% 65%, 0% 100%, 100% 100%, 92% 65%, 100% 65%);
+  width: 28px;
+  height: 32px;
+  background: #4a235a;
+  clip-path: polygon(50% 0%, 5% 55%, 15% 55%, 0% 100%, 100% 100%, 85% 55%, 95% 55%);
   z-index: 9;
 }
 
@@ -471,6 +533,96 @@ body {
   filter: drop-shadow(0 0 6px rgba(133,195,233,0.6));
 }
 
+/* Boss - Bill Cipher from Gravity Falls */
+.boss {
+  position: absolute;
+  width: 90px;
+  height: 90px;
+  z-index: 9;
+}
+.boss-body {
+  position: absolute;
+  inset: 0;
+  clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+  background: #f1c40f;
+  background-image:
+    linear-gradient(rgba(0,0,0,0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,0,0,0.12) 1px, transparent 1px);
+  background-size: 24px 12px;
+  box-shadow: 0 0 20px rgba(241,196,15,0.6);
+  transition: filter 0.3s;
+}
+.boss-body::before {
+  content: '';
+  position: absolute;
+  top: 46%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 24px;
+  height: 24px;
+  background: radial-gradient(circle, #fff 30%, #111 45%);
+  border-radius: 50%;
+  box-shadow: 0 0 12px rgba(255,255,255,0.9);
+}
+.boss-body::after {
+  content: '';
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 6px;
+  height: 6px;
+  background: #000;
+  border-radius: 50%;
+  z-index: 1;
+}
+.boss-hat {
+  position: absolute;
+  top: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 36px;
+  height: 22px;
+  background: #1a1a1a;
+  clip-path: polygon(10% 100%, 0% 20%, 5% 0%, 95% 0%, 100% 20%, 90% 100%);
+  z-index: 2;
+  filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5));
+}
+.boss-hat-band {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 5px;
+  background: #f1c40f;
+  border-radius: 1px;
+}
+.boss-bowtie {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 28px;
+  height: 12px;
+  background: #8b0000;
+  clip-path: polygon(50% 100%, 0% 50%, 50% 0%, 100% 50%);
+  z-index: 2;
+}
+.boss-bowtie-knot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 7px;
+  height: 7px;
+  background: #5c0000;
+  border-radius: 50%;
+  z-index: 3;
+}
+.boss-body.hit {
+  filter: brightness(1.8);
+}
+
 /* Enemy bullets */
 .enemy-bullet {
   position: absolute;
@@ -480,6 +632,15 @@ body {
   clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
   z-index: 7;
   box-shadow: 0 0 6px rgba(231,76,60,0.8);
+}
+.boss-bullet {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  background: radial-gradient(circle at 40% 35%, #fff 15%, #f1c40f 40%, #e74c3c 70%, #c0392b 100%);
+  border-radius: 50%;
+  z-index: 8;
+  box-shadow: 0 0 20px rgba(231,76,60,0.9), 0 0 40px rgba(241,196,15,0.5);
 }
 
 /* Fire zone */
@@ -616,6 +777,10 @@ body {
   align-items: center;
   justify-content: center;
 }
+.other-player.skin-stripes { background-image: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.12) 4px, rgba(0,0,0,0.12) 8px); }
+.other-player.skin-grid { background-image: linear-gradient(rgba(0,0,0,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.1) 1px, transparent 1px); background-size: 6px 6px; }
+.other-player.skin-diamond { background-image: repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.1) 5px, rgba(0,0,0,0.1) 6px), repeating-linear-gradient(-45deg, transparent, transparent 5px, rgba(255,255,255,0.12) 5px, rgba(255,255,255,0.12) 6px); }
+.other-player.skin-dots { background-image: radial-gradient(rgba(0,0,0,0.15) 2px, transparent 2px); background-size: 8px 8px; }
 
 .other-player::before {
   content: '';
@@ -625,6 +790,12 @@ body {
   background: var(--circle-color, rgba(255,255,255,0.5));
   border-radius: 50%;
 }
+.other-player.center-square::before { border-radius: 0; }
+.other-player.center-line::before { width: 30px; height: 9px; border-radius: 0; background: var(--circle-color, rgba(255,255,255,0.5)); }
+.other-player.center-triangle::before { border-radius: 0; clip-path: polygon(50% 0%, 0% 100%, 100% 100%); }
+.other-player.center-heart::before { border-radius: 0; width: 14px; height: 14px; clip-path: polygon(50% 30%, 65% 10%, 85% 10%, 100% 30%, 100% 55%, 50% 95%, 0% 55%, 0% 30%, 15% 10%, 35% 10%); }
+.other-player.center-star::before { border-radius: 0; clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); }
+.other-player.center-triangle::before { border-radius: 0; clip-path: polygon(50% 0%, 0% 100%, 100% 100%); }
 
 .other-player[data-sword]::after {
   content: '';

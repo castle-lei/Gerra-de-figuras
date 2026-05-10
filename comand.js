@@ -23,6 +23,8 @@ let hp = 100;
 const maxHp = 100;
 let wave = 0;
 let moveInterval = null;
+let bossInterval = null;
+let bossShootInterval = null;
 let damageCooldown = false;
 let greenHitCooldown = false;
 let playerSlowed = false;
@@ -54,25 +56,25 @@ function startParticles() {
   particleCanvas.width = window.innerWidth;
   particleCanvas.height = window.innerHeight;
   particles = [];
-  for (let i = 0; i < 450; i++) {
-    const shape = i < 250 ? 0 : i < 350 ? 1 : 2;
+  for (let i = 0; i < 500; i++) {
+    const shape = i < 200 ? 0 : i < 350 ? 1 : 2;
     particles.push({
       x: Math.random() * (particleCanvas.width + 100) - 50,
       y: Math.random() * particleCanvas.height - particleCanvas.height,
-      len: 6 + Math.random() * 14,
-      size: 2 + Math.random() * 6,
-      speedY: 5 + Math.random() * 8,
+      len: 8 + Math.random() * 18,
+      size: shape === 0 ? 0 : 3 + Math.random() * 14,
+      speedY: 4 + Math.random() * 10,
       speedX: -0.5 + Math.random() * 0.3,
-      opacity: 0.2 + Math.random() * 0.5,
-      wind: -0.3 + Math.random() * 0.15,
+      opacity: 0.15 + Math.random() * 0.5,
+      wind: -0.4 + Math.random() * 0.2,
       rot: Math.random() * Math.PI * 2,
-      rotSpeed: (Math.random() - 0.5) * 0.02,
+      rotSpeed: (Math.random() - 0.5) * 0.025,
       shape,
     });
   }
   function draw() {
     ctx.clearRect(0, 0, particleCanvas.width, particleCanvas.height);
-    ctx.lineWidth = 1.2;
+    ctx.lineWidth = 1;
     for (const p of particles) {
       p.y += p.speedY;
       p.x += p.wind;
@@ -86,20 +88,21 @@ function startParticles() {
       ctx.globalAlpha = p.opacity;
 
       if (p.shape === 0) {
-        ctx.strokeStyle = 'rgba(180,200,255,0.6)';
+        ctx.strokeStyle = 'rgba(255,255,255,0.7)';
         ctx.beginPath();
         ctx.moveTo(p.x, p.y);
-        ctx.lineTo(p.x + p.wind * 4, p.y - p.len);
+        ctx.lineTo(p.x + p.wind * 5, p.y - p.len);
         ctx.stroke();
       } else if (p.shape === 1) {
-        ctx.fillStyle = 'rgba(180,200,255,0.5)';
+        ctx.fillStyle = 'rgba(255,255,255,0.8)';
+        const s = p.size;
         ctx.save();
         ctx.translate(p.x, p.y);
         ctx.rotate(p.rot);
-        ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+        ctx.fillRect(-s / 2, -s / 2, s, s);
         ctx.restore();
       } else {
-        ctx.fillStyle = 'rgba(180,200,255,0.5)';
+        ctx.fillStyle = 'rgba(255,255,255,0.8)';
         const s = p.size;
         ctx.save();
         ctx.translate(p.x, p.y);
@@ -172,6 +175,10 @@ function announceWave(n) {
 function startWave() {
   wave++;
   announceWave(wave);
+  if (wave === 10) {
+    spawnBoss();
+    return;
+  }
   const count = wave + 2;
   for (let i = 0; i < count; i++) spawnGreenSquare();
   if (wave >= 2) {
@@ -186,9 +193,190 @@ function startWave() {
 }
 
 function checkWaveCleared() {
+  if (wave === 10) {
+    if (!document.querySelector('.boss')) {
+      setTimeout(startWave, 2000);
+    }
+    return;
+  }
   if (document.querySelectorAll('.green-square').length === 0) {
     setTimeout(startWave, 2000);
   }
+}
+
+let bossHp = 0;
+const BOSS_MAX_HP = 30;
+
+function spawnBoss() {
+  const bx = Math.floor(Math.random() * (window.innerWidth - 90) / STEP) * STEP;
+  const by = Math.floor(Math.random() * (window.innerHeight - 90) / STEP) * STEP;
+  const el = document.createElement('div');
+  el.className = 'boss';
+  el.style.left = bx + 'px';
+  el.style.top = by + 'px';
+  el.dataset.hp = BOSS_MAX_HP;
+
+  const body = document.createElement('div');
+  body.className = 'boss-body';
+  el.appendChild(body);
+  const hat = document.createElement('div');
+  hat.className = 'boss-hat';
+  const band = document.createElement('div');
+  band.className = 'boss-hat-band';
+  hat.appendChild(band);
+  el.appendChild(hat);
+  const bowtie = document.createElement('div');
+  bowtie.className = 'boss-bowtie';
+  const knot = document.createElement('div');
+  knot.className = 'boss-bowtie-knot';
+  bowtie.appendChild(knot);
+  el.appendChild(bowtie);
+
+  container.appendChild(el);
+  bossHp = BOSS_MAX_HP;
+
+  const bossHpBar = document.getElementById('boss-hp-bar');
+  const bossHpFill = document.getElementById('boss-hp-fill');
+  const bossHpText = document.getElementById('boss-hp-text');
+  bossHpBar.classList.add('show');
+  bossHpFill.style.width = '100%';
+  bossHpText.textContent = BOSS_MAX_HP + '/' + BOSS_MAX_HP;
+  bossShootInterval = setInterval(bossShoot, 2000);
+}
+
+function swordHitBoss(el) {
+  if (greenHitCooldown) return;
+  greenHitCooldown = true;
+  const config = SWORD_TYPES.find(s => s.type === swordType);
+  if (!config) return;
+  damagePlayer(config.selfDmg);
+  if (config.type === 'life') healPlayer(2);
+  let current = parseInt(el.dataset.hp);
+  current -= config.dmg;
+  el.dataset.hp = Math.max(0, current);
+
+  const body = el.querySelector('.boss-body');
+  if (body) { body.classList.add('hit'); setTimeout(() => body.classList.remove('hit'), 150); }
+
+  if (config.type === 'ice') el.dataset.frozen = Date.now();
+  if (config.type === 'poison') {
+    el.dataset.poisonTicks = parseInt(el.dataset.poisonTicks || '0') + 3;
+    el.dataset.lastPoison = Date.now();
+  }
+  if (config.type === 'fire') {
+    current -= 2; el.dataset.hp = Math.max(0, current);
+    const bx = parseInt(el.style.left) + 45;
+    const by = parseInt(el.style.top) + 45;
+    for (const g of document.querySelectorAll('.green-square')) {
+      const gx = parseInt(g.style.left) + 15;
+      const gy = parseInt(g.style.top) + 15;
+      if (Math.abs(bx - gx) < 60 && Math.abs(by - gy) < 60) {
+        let gh = parseInt(g.dataset.hp) - 2;
+        if (gh <= 0) explode(g);
+        else { g.dataset.hp = gh; g.classList.add('hit'); setTimeout(() => g.classList.remove('hit'), 150); }
+      }
+    }
+    for (const t of document.querySelectorAll('.triangle-enemy')) {
+      const tx = parseInt(t.style.left) + 15;
+      const ty = parseInt(t.style.top) + 15;
+      if (Math.abs(bx - tx) < 60 && Math.abs(by - ty) < 60) {
+        let th = parseInt(t.dataset.hp) - 2;
+        t.dataset.hp = Math.max(0, th);
+        t.classList.add('hit'); setTimeout(() => t.classList.remove('hit'), 150);
+        if (th <= 0) { t.remove(); }
+      }
+    }
+  }
+
+  updateBossHpBar();
+
+  if (current <= 0) {
+    el.remove();
+    bossHp = 0;
+    clearInterval(bossShootInterval);
+    document.getElementById('boss-hp-bar').classList.remove('show');
+    gameWin();
+  }
+  setTimeout(() => { greenHitCooldown = false; }, 200);
+}
+
+function updateBossHpBar() {
+  const el = document.querySelector('.boss');
+  if (!el) return;
+  const fill = document.getElementById('boss-hp-fill');
+  const txt = document.getElementById('boss-hp-text');
+  const hp = Math.max(0, parseInt(el.dataset.hp));
+  fill.style.width = (hp / BOSS_MAX_HP * 100) + '%';
+  txt.textContent = hp + '/' + BOSS_MAX_HP;
+}
+
+function moveBoss() {
+  const el = document.querySelector('.boss');
+  if (!el) return;
+  if (el.dataset.frozen) {
+    if (Date.now() - parseInt(el.dataset.frozen) < 3000) return;
+    delete el.dataset.frozen;
+  }
+  let bx = parseInt(el.style.left);
+  let by = parseInt(el.style.top);
+  const size = 90;
+  if (Math.abs(x + 15 - (bx + 45)) < 60 && Math.abs(y + 15 - (by + 45)) < 60) {
+    damagePlayer(10);
+    return;
+  }
+  const step = 2;
+  if (Math.abs(x + 15 - (bx + 45)) >= Math.abs(y + 15 - (by + 45))) {
+    if (x + 15 > bx + 45) bx += step;
+    else if (x + 15 < bx + 45) bx -= step;
+  } else {
+    if (y + 15 > by + 45) by += step;
+    else if (y + 15 < by + 45) by -= step;
+  }
+  bx = Math.max(0, Math.min(window.innerWidth - size, bx));
+  by = Math.max(0, Math.min(window.innerHeight - size, by));
+  el.style.left = bx + 'px';
+  el.style.top = by + 'px';
+  if (Math.abs(x + 15 - (bx + 45)) < 60 && Math.abs(y + 15 - (by + 45)) < 60) {
+    damagePlayer(10);
+  }
+}
+
+function processBossEffects() {
+  const el = document.querySelector('.boss');
+  if (!el) return;
+  const ticks = parseInt(el.dataset.poisonTicks);
+  if (ticks && ticks > 0) {
+    const now = Date.now();
+    if (now - parseInt(el.dataset.lastPoison) >= 1000) {
+      let hp = parseInt(el.dataset.hp) - 1;
+      el.dataset.hp = Math.max(0, hp);
+      el.dataset.poisonTicks = ticks - 1;
+      el.dataset.lastPoison = now;
+      const body = el.querySelector('.boss-body');
+      if (body) { body.classList.add('hit'); setTimeout(() => body.classList.remove('hit'), 100); }
+      updateBossHpBar();
+      if (hp <= 0) {
+        el.remove();
+        bossHp = 0;
+        clearInterval(bossShootInterval);
+        document.getElementById('boss-hp-bar').classList.remove('show');
+        gameWin();
+      }
+    }
+  }
+}
+
+function gameWin() {
+  started = false;
+  clearInterval(moveInterval);
+  clearInterval(bulletInterval);
+  clearInterval(bossInterval);
+  clearInterval(bossShootInterval);
+  document.querySelectorAll('.boss-bullet').forEach(b => b.remove());
+  document.getElementById('boss-hp-bar').classList.remove('show');
+  document.getElementById('game-over-box').querySelector('h1').textContent = 'Victoria!';
+  document.getElementById('game-over-box').querySelector('p').innerHTML = 'Derrotaste al jefe final!';
+  gameOverScreen.classList.add('show');
 }
 
 function spawnGreenSquare() {
@@ -477,6 +665,25 @@ function triangleShoot() {
   }
 }
 
+function bossShoot() {
+  const el = document.querySelector('.boss');
+  if (!el) return;
+  const bx = parseInt(el.style.left) + 45;
+  const by = parseInt(el.style.top) + 45;
+  const dx = x + 15 - bx;
+  const dy = y + 15 - by;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist === 0) return;
+  const speed = 4;
+  const b = document.createElement('div');
+  b.className = 'boss-bullet';
+  b.dataset.vx = dx / dist * speed;
+  b.dataset.vy = dy / dist * speed;
+  b.style.left = (bx - 14) + 'px';
+  b.style.top = (by - 14) + 'px';
+  container.appendChild(b);
+}
+
 function moveBullets() {
   const bullets = document.querySelectorAll('.enemy-bullet');
   for (const b of bullets) {
@@ -488,6 +695,20 @@ function moveBullets() {
     b.style.left = bx + 'px';
     b.style.top = by + 'px';
     if (Math.abs(x + 15 - (bx + 5)) < 15 && Math.abs(y + 15 - (by + 5)) < 15) {
+      damagePlayer(5);
+      b.remove();
+    }
+  }
+  const bossBullets = document.querySelectorAll('.boss-bullet');
+  for (const b of bossBullets) {
+    let bx = parseFloat(b.style.left) + parseFloat(b.dataset.vx);
+    let by = parseFloat(b.style.top) + parseFloat(b.dataset.vy);
+    if (bx < -30 || bx > window.innerWidth + 30 || by < -30 || by > window.innerHeight + 30) {
+      b.remove(); continue;
+    }
+    b.style.left = bx + 'px';
+    b.style.top = by + 'px';
+    if (Math.abs(x + 15 - (bx + 14)) < 20 && Math.abs(y + 15 - (by + 14)) < 20) {
       damagePlayer(5);
       b.remove();
     }
@@ -662,6 +883,14 @@ function checkCollisions() {
       else { damagePlayer(8); t.remove(); }
     }
   }
+  const bossEl = document.querySelector('.boss');
+  if (bossEl) {
+    const bx = parseInt(bossEl.style.left);
+    const by = parseInt(bossEl.style.top);
+    if (Math.abs(x + 15 - (bx + 45)) < 60 && Math.abs(y + 15 - (by + 45)) < 60) {
+      if (swordType) swordHitBoss(bossEl);
+    }
+  }
 }
 
 // ============ GAME OVER ============
@@ -669,6 +898,9 @@ function gameOver() {
   started = false;
   clearInterval(moveInterval);
   clearInterval(bulletInterval);
+  clearInterval(bossInterval);
+  clearInterval(bossShootInterval);
+  document.querySelectorAll('.boss-bullet').forEach(b => b.remove());
   finalWave.textContent = wave;
   gameOverScreen.classList.add('show');
 }
@@ -682,16 +914,37 @@ const customizePanel = document.getElementById('customize-panel');
 const customizeClose = document.getElementById('customize-close');
 const colorSquare = document.getElementById('color-square');
 const colorCircle = document.getElementById('color-circle');
+const skinSelect = document.getElementById('skin-select');
+const centerShape = document.getElementById('center-shape');
 
-customizeBtn.addEventListener('click', () => customizePanel.classList.toggle('show'));
-customizeClose.addEventListener('click', () => customizePanel.classList.remove('show'));
+document.getElementById('customize-btn').addEventListener('click', () => {
+  document.getElementById('customize-panel').classList.add('show');
+  document.getElementById('start-box').classList.add('customizing');
+});
 
-function applyColors() {
-  square.style.background = colorSquare.value;
+function applyPlayerStyles() {
+  const skin = skinSelect.value;
+  const shape = centerShape.value;
+  const bg = colorSquare.value;
+  square.style.backgroundColor = bg;
+  const classes = [];
+  if (skin !== 'solid') classes.push('skin-' + skin);
+  if (shape !== 'circle') classes.push('center-' + shape);
+  square.className = classes.join(' ');
   square.style.setProperty('--circle-color', colorCircle.value);
 }
-colorSquare.addEventListener('input', applyColors);
-colorCircle.addEventListener('input', applyColors);
+
+colorSquare.addEventListener('input', applyPlayerStyles);
+colorCircle.addEventListener('input', () => { square.style.setProperty('--circle-color', colorCircle.value); });
+skinSelect.addEventListener('change', applyPlayerStyles);
+centerShape.addEventListener('change', applyPlayerStyles);
+
+applyPlayerStyles();
+
+document.getElementById('customize-close').addEventListener('click', () => {
+  document.getElementById('customize-panel').classList.remove('show');
+  document.getElementById('start-box').classList.remove('customizing');
+});
 
 const mpBtn = document.getElementById('mp-btn');
 const mpCreateBtn = document.getElementById('mp-create-btn');
@@ -748,6 +1001,7 @@ startBtn.addEventListener('click', () => {
   bulletInterval = setInterval(triangleShoot, 2500);
   setInterval(moveBullets, 50);
   setInterval(() => { if (started) healPlayer(1); }, 5000);
+  bossInterval = setInterval(() => { moveBoss(); processBossEffects(); }, 50);
 });
 
 document.addEventListener('keydown', (e) => {
@@ -776,7 +1030,7 @@ document.addEventListener('keydown', (e) => {
   trail.className = 'trail';
   trail.style.left = oldX + 'px';
   trail.style.top = oldY + 'px';
-  trail.style.background = square.style.background || getComputedStyle(square).background;
+  trail.style.background = square.style.backgroundColor || getComputedStyle(square).backgroundColor;
   container.appendChild(trail);
   trail.addEventListener('animationend', () => trail.remove());
   square.style.left = x + 'px';

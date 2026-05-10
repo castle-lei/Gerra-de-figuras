@@ -4,7 +4,7 @@ const SWORD_CFG = {
   ice: { dmg: 2, selfDmg: 0 },
   fire: { dmg: 2, selfDmg: 2 },
   life: { dmg: 2, selfDmg: 0 },
-  poison: { dmg: 1, selfDmg: 2 },
+  poison: { dmg: 0.1-, selfDmg: 2 },
 };
 
 const SWORD_TYPES_MP = [
@@ -32,6 +32,9 @@ const MP = {
   fireZones: [],
   fx: [],
   trails: [],
+  boss: null,
+  bossBullets: [],
+  bossBulletUid: 0,
   greenUid: 0,
   bulletUid: 0,
   STEP: 30,
@@ -81,7 +84,9 @@ function mpJoinRoom(code) {
     MP.conn.on('open', () => {
       const sqColor = document.getElementById('color-square').value;
       const circColor = document.getElementById('color-circle').value;
-      MP.conn.send({ type: 'join', color: sqColor, circleColor: circColor });
+      const skinVal = document.getElementById('skin-select').value;
+      const centerVal = document.getElementById('center-shape').value;
+      MP.conn.send({ type: 'join', color: sqColor, circleColor: circColor, skin: skinVal, center: centerVal });
       showPanel('waiting-for-start');
     });
   });
@@ -131,6 +136,8 @@ function handleHostData(conn, data) {
         sword: null,
         color: data.color || '#f1c40f',
         circleColor: data.circleColor || '#e94560',
+        skin: data.skin || 'solid',
+        center: data.center || 'circle',
         poisoned: null,
         slowed: 0,
       };
@@ -184,7 +191,15 @@ function handleClientData(data) {
   } else if (data.type === 'gameOver') {
     MP.started = false;
     mpStopIntervals();
+    document.getElementById('boss-hp-bar').classList.remove('show');
     finalWave.textContent = data.wave;
+    gameOverScreen.classList.add('show');
+  } else if (data.type === 'gameWin') {
+    MP.started = false;
+    mpStopIntervals();
+    document.getElementById('boss-hp-bar').classList.remove('show');
+    document.getElementById('game-over-box').querySelector('h1').textContent = 'Victoria!';
+    document.getElementById('game-over-box').querySelector('p').innerHTML = 'Derrotaste al jefe final!';
     gameOverScreen.classList.add('show');
   }
 }
@@ -201,6 +216,8 @@ function mpHostStartGame() {
 
   const sqColor = document.getElementById('color-square').value;
   const circColor = document.getElementById('color-circle').value;
+  const skinVal = document.getElementById('skin-select').value;
+  const centerVal = document.getElementById('center-shape').value;
   MP.players[MP.myId] = {
     conn: null,
     x: randomGrid(MP.MAP_W),
@@ -209,6 +226,8 @@ function mpHostStartGame() {
     sword: null,
     color: sqColor,
     circleColor: circColor,
+    skin: skinVal,
+    center: centerVal,
     poisoned: null,
     slowed: 0,
   };
@@ -228,6 +247,11 @@ function mpHideLobby() {
 function mpStartWave() {
   MP.wave++;
   announceWave(MP.wave);
+  if (MP.wave === 10) {
+    mpSpawnBoss();
+    broadcastMpState();
+    return;
+  }
   const count = MP.wave + 2;
   for (let i = 0; i < count; i++) mpSpawnGreen();
   if (MP.wave >= 2) for (let i = 0; i < Math.floor(MP.wave / 2) + 1; i++) mpSpawnHeart();
@@ -313,6 +337,151 @@ function mpSpawnSword() {
   });
 }
 
+// ============ BOSS ============
+
+const MP_BOSS_MAX_HP = 30;
+
+function mpSpawnBoss() {
+  let x, y, ok;
+  let attempts = 0;
+  do {
+    x = randomGrid(MP.MAP_W - 60);
+    y = randomGrid(MP.MAP_H - 60);
+    ok = true;
+    for (const p of Object.values(MP.players)) {
+      if (Math.abs(p.x - x) < MP.STEP * 2 && Math.abs(p.y - y) < MP.STEP * 2) { ok = false; break; }
+    }
+  } while (!ok && attempts++ < 50);
+  MP.boss = { x, y, hp: MP_BOSS_MAX_HP, hitAt: 0, frozen: 0, poisonTicks: 0, lastPoison: 0 };
+}
+
+function mpMoveBoss() {
+  if (!MP.boss) return;
+  const b = MP.boss;
+  if (b.frozen && Date.now() - b.frozen < 3000) return;
+  b.frozen = 0;
+  const p = closestPlayer(b.x, b.y);
+  if (!p) return;
+  if (Math.abs(p.x + 15 - (b.x + 45)) < 60 && Math.abs(p.y + 15 - (b.y + 45)) < 60) {
+    p.hp -= 10;
+    return;
+  }
+  const step = 2;
+  if (Math.abs(p.x + 15 - (b.x + 45)) >= Math.abs(p.y + 15 - (b.y + 45))) {
+    if (p.x + 15 > b.x + 45) b.x += step;
+    else if (p.x + 15 < b.x + 45) b.x -= step;
+  } else {
+    if (p.y + 15 > b.y + 45) b.y += step;
+    else if (p.y + 15 < b.y + 45) b.y -= step;
+  }
+  b.x = Math.max(0, Math.min(MP.MAP_W - 90, b.x));
+  b.y = Math.max(0, Math.min(MP.MAP_H - 90, b.y));
+  if (Math.abs(p.x + 15 - (b.x + 45)) < 60 && Math.abs(p.y + 15 - (b.y + 45)) < 60) {
+    p.hp -= 10;
+  }
+}
+
+function mpSwordHitBoss(p) {
+  const c = SWORD_CFG[p.sword];
+  if (!c || !MP.boss) return;
+  p.hp -= c.selfDmg;
+  if (p.sword === 'life') p.hp = Math.min(p.hp + 2, 100);
+  MP.boss.hp -= c.dmg;
+  MP.boss.hitAt = Date.now();
+  if (p.sword === 'ice') MP.boss.frozen = Date.now();
+  if (p.sword === 'poison') { MP.boss.poisonTicks += 3; MP.boss.lastPoison = Date.now(); }
+  if (p.sword === 'fire') {
+    MP.boss.hp -= 2;
+    const bx = MP.boss.x + 45;
+    const by = MP.boss.y + 45;
+    for (const gr of [...MP.greens]) {
+      if (Math.abs(bx - (gr.x + 15)) < 60 && Math.abs(by - (gr.y + 15)) < 60) {
+        gr.hp -= 2;
+        gr.hitAt = Date.now();
+        if (gr.hp <= 0) mpExplodeGreen(gr, false);
+      }
+    }
+    for (const t of [...MP.triangles]) {
+      if (Math.abs(bx - (t.x + 15)) < 60 && Math.abs(by - (t.y + 15)) < 60) {
+        t.hp -= 2;
+        t.hitAt = Date.now();
+        if (t.hp <= 0) MP.triangles = MP.triangles.filter(e => e !== t);
+      }
+    }
+  }
+  if (MP.boss.hp <= 0) {
+    MP.boss = null;
+    MP.bossBullets = [];
+    document.getElementById('boss-hp-bar').classList.remove('show');
+    mpGameWin();
+  }
+}
+
+function mpProcessBossEffects() {
+  if (!MP.boss) return;
+  const b = MP.boss;
+  if (b.poisonTicks > 0 && Date.now() - b.lastPoison >= 1000) {
+    b.hp--;
+    if (b.hp <= 0) {
+      MP.boss = null;
+      MP.bossBullets = [];
+      document.getElementById('boss-hp-bar').classList.remove('show');
+      mpGameWin();
+      return;
+    }
+    b.poisonTicks--;
+    b.lastPoison = Date.now();
+    b.hitAt = Date.now();
+  }
+}
+
+function mpBossShoot() {
+  if (!MP.boss) return;
+  const b = MP.boss;
+  const p = closestPlayer(b.x, b.y);
+  if (!p) return;
+  const dx = p.x + 15 - (b.x + 45);
+  const dy = p.y + 15 - (b.y + 45);
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist === 0) return;
+  const speed = 4;
+  MP.bossBullets.push({
+    id: ++MP.bossBulletUid,
+    x: b.x + 45 - 14,
+    y: b.y + 45 - 14,
+    vx: dx / dist * speed,
+    vy: dy / dist * speed,
+  });
+}
+
+function mpMoveBossBullets() {
+  for (const b of [...MP.bossBullets]) {
+    b.x += b.vx;
+    b.y += b.vy;
+    if (b.x < -30 || b.x > MP.MAP_W + 30 || b.y < -30 || b.y > MP.MAP_H + 30) {
+      MP.bossBullets = MP.bossBullets.filter(e => e !== b);
+      continue;
+    }
+    for (const p of Object.values(MP.players)) {
+      if (Math.abs(p.x + 15 - (b.x + 14)) < 20 && Math.abs(p.y + 15 - (b.y + 14)) < 20) {
+        p.hp -= 5;
+        MP.bossBullets = MP.bossBullets.filter(e => e !== b);
+        break;
+      }
+    }
+  }
+}
+
+function mpGameWin() {
+  MP.started = false;
+  broadcastMp({ type: 'gameWin' });
+  mpStopIntervals();
+  document.getElementById('boss-hp-bar').classList.remove('show');
+  document.getElementById('game-over-box').querySelector('h1').textContent = 'Victoria!';
+  document.getElementById('game-over-box').querySelector('p').innerHTML = 'Derrotaste al jefe final!';
+  gameOverScreen.classList.add('show');
+}
+
 // ============ PROCESS PLAYER MOVE ============
 
 function mpProcessMove(p, dir) {
@@ -356,6 +525,17 @@ function mpProcessMove(p, dir) {
     if (Math.abs(p.x - t.x) < MP.STEP && Math.abs(p.y - t.y) < MP.STEP) {
       if (p.sword) mpSwordHitTriangle(t, p);
       else { p.hp -= 8; MP.triangles = MP.triangles.filter(e => e !== t); }
+    }
+  }
+  if (MP.boss) {
+    if (Math.abs(p.x + 15 - (MP.boss.x + 45)) < 60 && Math.abs(p.y + 15 - (MP.boss.y + 45)) < 60) {
+      if (p.sword) mpSwordHitBoss(p);
+    }
+  }
+  for (const b of [...MP.bossBullets]) {
+    if (Math.abs(p.x + 15 - (b.x + 14)) < 20 && Math.abs(p.y + 15 - (b.y + 14)) < 20) {
+      p.hp -= 5;
+      MP.bossBullets = MP.bossBullets.filter(e => e !== b);
     }
   }
 }
@@ -436,6 +616,12 @@ function mpExplodeGreen(gr, isFire) {
 }
 
 function mpCheckWaveCleared() {
+  if (MP.wave === 10) {
+    if (!MP.boss) {
+      setTimeout(() => { if (MP.started) mpStartWave(); }, 2000);
+    }
+    return;
+  }
   if (MP.greens.length === 0) {
     setTimeout(() => { if (MP.started) mpStartWave(); }, 2000);
   }
@@ -598,6 +784,7 @@ function mpCheckGameOver() {
       broadcastMp({ type: 'gameOver', wave: MP.wave });
       mpStopIntervals();
       MP.started = false;
+      document.getElementById('boss-hp-bar').classList.remove('show');
       finalWave.textContent = MP.wave;
       gameOverScreen.classList.add('show');
       return;
@@ -614,6 +801,9 @@ function mpStartIntervals() {
   MP.intervals.push(setInterval(() => { mpApplyEffects(); broadcastMpState(); }, 1000));
   MP.intervals.push(setInterval(() => { mpHealPlayers(); broadcastMpState(); }, 5000));
   MP.intervals.push(setInterval(() => { mpSpawnSword(); broadcastMpState(); }, 10000));
+  MP.intervals.push(setInterval(() => { mpMoveBoss(); mpProcessBossEffects(); broadcastMpState(); }, 50));
+  MP.intervals.push(setInterval(() => { mpBossShoot(); }, 2000));
+  MP.intervals.push(setInterval(() => { mpMoveBossBullets(); broadcastMpState(); }, 50));
 }
 
 function mpStopIntervals() {
@@ -628,7 +818,7 @@ function buildMpState() {
   for (const [id, p] of Object.entries(MP.players)) {
     players[id] = {
       x: p.x, y: p.y, hp: p.hp, sword: p.sword,
-      color: p.color, circleColor: p.circleColor,
+      color: p.color, circleColor: p.circleColor, skin: p.skin, center: p.center,
     };
   }
   return {
@@ -648,6 +838,8 @@ function buildMpState() {
     hearts: MP.hearts.map(h => ({ id: h.id, x: h.x, y: h.y })),
     groundSwords: MP.groundSwords.map(s => ({ id: s.id, x: s.x, y: s.y, type: s.type })),
     fireZones: MP.fireZones.map(z => ({ x: z.x, y: z.y })),
+    boss: MP.boss ? { x: MP.boss.x, y: MP.boss.y, hp: MP.boss.hp, hit: MP.boss.hitAt && Date.now() - MP.boss.hitAt < 150 } : null,
+    bossBullets: MP.bossBullets.map(b => ({ id: b.id, x: b.x, y: b.y })),
     effects: MP.fx.splice(0),
     trails: MP.trails.splice(0),
   };
@@ -680,6 +872,8 @@ function renderMpState(state) {
   if (me) {
     square.style.left = me.x + 'px';
     square.style.top = me.y + 'px';
+    square.style.backgroundColor = me.color;
+    square.className = me.skin && me.skin !== 'solid' ? 'skin-' + me.skin : '';
     hp = me.hp;
     updateHealth();
     if (me.sword) {
@@ -711,7 +905,10 @@ function renderMpState(state) {
     }
     el.style.left = p.x + 'px';
     el.style.top = p.y + 'px';
-    el.style.background = p.color || '#f1c40f';
+    el.style.backgroundColor = p.color || '#f1c40f';
+    el.className = 'other-player';
+    if (p.skin && p.skin !== 'solid') el.classList.add('skin-' + p.skin);
+    if (p.center && p.center !== 'circle') el.classList.add('center-' + p.center);
     el.style.setProperty('--circle-color', p.circleColor || 'rgba(255,255,255,0.5)');
     if (p.sword) {
       el.dataset.sword = p.sword;
@@ -719,6 +916,19 @@ function renderMpState(state) {
     } else {
       delete el.dataset.sword;
     }
+    let hpBar = el.querySelector('.hp-bar');
+    if (!hpBar) {
+      hpBar = document.createElement('div');
+      hpBar.className = 'hp-bar';
+      el.appendChild(hpBar);
+    }
+    let hpFill = hpBar.querySelector('.hp-bar-fill');
+    if (!hpFill) {
+      hpFill = document.createElement('div');
+      hpFill.className = 'hp-bar-fill';
+      hpBar.appendChild(hpFill);
+    }
+    hpFill.style.width = Math.max(0, p.hp) + '%';
   }
 
   greenContainer.innerHTML = '';
@@ -787,6 +997,50 @@ function renderMpState(state) {
         el.style.animationDelay = ((dx + 1) * 0.08 + (dy + 1) * 0.08) + 's';
         trail.appendChild(el);
       }
+    }
+  }
+
+  trail.querySelectorAll('.boss').forEach(el => el.remove());
+  const bossHpBar = document.getElementById('boss-hp-bar');
+  const bossHpFill = document.getElementById('boss-hp-fill');
+  const bossHpText = document.getElementById('boss-hp-text');
+  if (state.boss) {
+    const el = document.createElement('div');
+    el.className = 'boss';
+    el.style.left = state.boss.x + 'px';
+    el.style.top = state.boss.y + 'px';
+
+    const body = document.createElement('div');
+    body.className = 'boss-body';
+    if (state.boss.hit) body.classList.add('hit');
+    el.appendChild(body);
+
+    const hat = document.createElement('div'); hat.className = 'boss-hat';
+    const band = document.createElement('div'); band.className = 'boss-hat-band';
+    hat.appendChild(band);
+    el.appendChild(hat);
+    const bowtie = document.createElement('div'); bowtie.className = 'boss-bowtie';
+    const knot = document.createElement('div'); knot.className = 'boss-bowtie-knot';
+    bowtie.appendChild(knot);
+    el.appendChild(bowtie);
+
+    trail.appendChild(el);
+    bossHpBar.classList.add('show');
+    bossHpFill.style.width = Math.max(0, state.boss.hp / MP_BOSS_MAX_HP * 100) + '%';
+    bossHpText.textContent = state.boss.hp + '/' + MP_BOSS_MAX_HP;
+  } else {
+    bossHpBar.classList.remove('show');
+  }
+
+  // boss bullets
+  trail.querySelectorAll('.boss-bullet').forEach(b => b.remove());
+  if (state.bossBullets) {
+    for (const b of state.bossBullets) {
+      const el = document.createElement('div');
+      el.className = 'boss-bullet';
+      el.style.left = b.x + 'px';
+      el.style.top = b.y + 'px';
+      trail.appendChild(el);
     }
   }
 
@@ -892,7 +1146,7 @@ function mpHandleKey(e) {
     me.y = Math.max(0, Math.min(MP.MAP_H - 30, me.y));
 
     // trail (estela)
-    MP.trails.push({ x: oldX, y: oldY, color: square.style.background || getComputedStyle(square).background });
+    MP.trails.push({ x: oldX, y: oldY, color: square.style.backgroundColor || getComputedStyle(square).backgroundColor });
 
     // pickups & collisions (same as mpProcessMove)
     for (const sw of [...MP.groundSwords]) {
@@ -923,6 +1177,17 @@ function mpHandleKey(e) {
         else { me.hp -= 8; MP.triangles = MP.triangles.filter(e => e !== t); }
       }
     }
+    if (MP.boss) {
+      if (Math.abs(me.x + 15 - (MP.boss.x + 45)) < 60 && Math.abs(me.y + 15 - (MP.boss.y + 45)) < 60) {
+        if (me.sword) mpSwordHitBoss(me);
+      }
+    }
+    for (const b of [...MP.bossBullets]) {
+      if (Math.abs(me.x + 15 - (b.x + 14)) < 20 && Math.abs(me.y + 15 - (b.y + 14)) < 20) {
+        me.hp -= 5;
+        MP.bossBullets = MP.bossBullets.filter(e => e !== b);
+      }
+    }
 
     broadcastMpState();
   } else {
@@ -946,6 +1211,9 @@ function mpLeaveGame() {
   MP.hearts = [];
   MP.groundSwords = [];
   MP.fireZones = [];
+  MP.boss = null;
+  MP.bossBullets = [];
+  document.getElementById('boss-hp-bar').classList.remove('show');
   MP.wave = 0;
   MP.isHost = false;
   greenContainer.innerHTML = '';
@@ -953,7 +1221,7 @@ function mpLeaveGame() {
   swordContainer.innerHTML = '';
   heartContainer.innerHTML = '';
   document.getElementById('others-container').innerHTML = '';
-  document.querySelectorAll('.enemy-bullet, .fire-zone, .trail, .particle').forEach(el => el.remove());
+  document.querySelectorAll('.enemy-bullet, .boss-bullet, .fire-zone, .trail, .particle, .boss').forEach(el => el.remove());
   stopParticles();
   location.reload();
 }

@@ -26,6 +26,8 @@
 </div>
 <div id="sword-info"></div>
 
+<div id="boss-hp-bar"><div id="boss-hp-fill"></div><span id="boss-hp-text"></span></div>
+
 <div id="wave-announce"></div>
 
 <div id="game-over-screen">
@@ -48,6 +50,21 @@
       <h3>Personalizar</h3>
       <label>Cuadrado: <input type="color" id="color-square" value="#f1c40f"></label>
       <label>Círculo: <input type="color" id="color-circle" value="#e94560"></label>
+      <label>Piel: <select id="skin-select">
+        <option value="solid">Sólido</option>
+        <option value="stripes">Rayas</option>
+        <option value="grid">Cuadrícula</option>
+        <option value="diamond">Diamante</option>
+        <option value="dots">Puntos</option>
+      </select></label>
+      <label>Centro: <select id="center-shape">
+        <option value="circle">Círculo</option>
+        <option value="square">Cuadrado</option>
+        <option value="line">Línea</option>
+        <option value="triangle">Triángulo</option>
+        <option value="heart">Corazón</option>
+        <option value="star">Estrella</option>
+      </select></label>
       <button id="customize-close">OK</button>
     </div>
 
